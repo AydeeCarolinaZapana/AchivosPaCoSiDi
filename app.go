@@ -8,6 +8,9 @@ import (
 
 	. "./config"
 	. "./dao"
+	. "github.com/AydeeCarolinaZapana/AchivosPaCoSiDi/config"
+	. "github.com/AydeeCarolinaZapana/AchivosPaCoSiDi/dao"
+	. "github.com/AydeeCarolinaZapana/AchivosPaCoSiDi/models"
 	"github.com/gorilla/mux"
 )
 
