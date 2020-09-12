@@ -14,13 +14,11 @@ import (
 	"github.com/gorilla/mux"
 )
 
-var dao = MoviesDAO{}
 var config = Config{}
+var dao = MoviesDAO{}
 
-//GET
-//ENDPOINT: http:localhost:8080/movies
-func allMoviesEndPoint(w http.ResponseWriter, r *http.Request) {
-	//fmt.Fprintln(w, "Muestras todas las peliculas")
+// GET list of movies
+func AllMoviesEndPoint(w http.ResponseWriter, r *http.Request) {
 	movies, err := dao.FindAll()
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
@@ -29,40 +27,67 @@ func allMoviesEndPoint(w http.ResponseWriter, r *http.Request) {
 	respondWithJson(w, http.StatusOK, movies)
 }
 
-//GET
-//ENDPOINT: http:localhost:8080/movies/{id}
-//ENDPOINT: http:localhost:8080/movies/4
-func findMovieEndPoint(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Muestra pelicula específica segun id")
+// GET a movie by its ID
+func FindMovieEndpoint(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	movie, err := dao.FindById(params["id"])
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid Movie ID")
+		return
+	}
+	respondWithJson(w, http.StatusOK, movie)
 }
 
-// POST
-// ENDPOINT: http:localhost:8080/movies
-func createMovieEndPoint(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Registra una película")
+// POST a new movie
+func CreateMovieEndPoint(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	var movie Movie
+	if err := json.NewDecoder(r.Body).Decode(&movie); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+	movie.ID = bson.NewObjectId()
+	if err := dao.Insert(movie); err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	respondWithJson(w, http.StatusCreated, movie)
 }
 
-// PUT
-// ENDPOINT: http:localhost:8080/movies
-func updateMovieEndPoint(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Actualiza una película")
+// PUT update an existing movie
+func UpdateMovieEndPoint(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	var movie Movie
+	if err := json.NewDecoder(r.Body).Decode(&movie); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+	if err := dao.Update(movie); err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	respondWithJson(w, http.StatusOK, map[string]string{"result": "success"})
 }
 
-// DELETE
-// ENDPOINT: http:localhost:8080/movies/{id}
-func deleteMovieEndPoint(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Elimina una película segun id")
+// DELETE an existing movie
+func DeleteMovieEndPoint(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	var movie Movie
+	if err := json.NewDecoder(r.Body).Decode(&movie); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+	if err := dao.Delete(movie); err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	respondWithJson(w, http.StatusOK, map[string]string{"result": "success"})
 }
 
-func init() {
-	config.Read()
-	dao.Server = config.Server
-	dao.Database = config.Database
-	dao.Connect()
-}
 func respondWithError(w http.ResponseWriter, code int, msg string) {
 	respondWithJson(w, code, map[string]string{"error": msg})
 }
+
 func respondWithJson(w http.ResponseWriter, code int, payload interface{}) {
 	response, _ := json.Marshal(payload)
 	w.Header().Set("Content-Type", "application/json")
@@ -70,14 +95,23 @@ func respondWithJson(w http.ResponseWriter, code int, payload interface{}) {
 	w.Write(response)
 }
 
+// Parse the configuration file 'config.toml', and establish a connection to DB
+func init() {
+	config.Read()
+
+	dao.Server = config.Server
+	dao.Database = config.Database
+	dao.Connect()
+}
+
+// Define HTTP request routes
 func main() {
 	r := mux.NewRouter()
-
-	r.HandleFunc("/movies", allMoviesEndPoint).Methods("GET")
-	r.HandleFunc("/movies/{ID}", findMovieEndPoint).Methods("GET")
-	r.HandleFunc("/movies", createMovieEndPoint).Methods("POST")
-	r.HandleFunc("/movies", updateMovieEndPoint).Methods("UPDATE")
-	r.HandleFunc("/movies/{ID}", deleteMovieEndPoint).Methods("DELETE")
+	r.HandleFunc("/movies", AllMoviesEndPoint).Methods("GET")
+	r.HandleFunc("/movies", CreateMovieEndPoint).Methods("POST")
+	r.HandleFunc("/movies", UpdateMovieEndPoint).Methods("PUT")
+	r.HandleFunc("/movies", DeleteMovieEndPoint).Methods("DELETE")
+	r.HandleFunc("/movies/{id}", FindMovieEndpoint).Methods("GET")
 	if err := http.ListenAndServe(":3000", r); err != nil {
 		log.Fatal(err)
 	}
