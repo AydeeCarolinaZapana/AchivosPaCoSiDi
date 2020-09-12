@@ -3,7 +3,8 @@ package dao
 import (
 	"log"
 
-	. "../models"
+	
+	. "github.com/AydeeCarolinaZapana/AchivosPaCoSiDi/models"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
